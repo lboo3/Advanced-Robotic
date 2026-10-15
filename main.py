@@ -3,9 +3,11 @@
 Three "nodes" talk to each other only through topics:
 
     sensor node  --/scan-->  controller node  --/cmd_vel-->  robot (motor driver)
+                                               robot --/battery--> battery display
 
-Extra subscribers ("ros2 topic echo") print the messages into the log window.
-Use the checkboxes to subscribe/unsubscribe at runtime and watch what happens.
+Extra subscribers ("ros2 topic echo") print messages into the log window;
+warning and battery subscribers update their labels. Use checkboxes to toggle
+subscriptions at runtime and watch what happens.
 """
 
 import tkinter as tk
@@ -22,8 +24,9 @@ DT = 0.05             # simulation step [s] -> 20 Hz
 # --- Topics (the subjects) -------------------------------------------------
 scan_topic = Topic("/scan")         # msg: distance to wall [px]
 cmd_vel_topic = Topic("/cmd_vel")   # msg: velocity command [px/s]
+battery_topic = Topic("/battery")   # msg: remaining charge [%]
 
-robot = {"x": 60.0, "v": 0.0, "crashed": False}
+robot = {"x": 60.0, "v": 0.0, "crashed": False, "battery": 100.0}
 
 
 # --- Subscriber callbacks (the observers) ---------------------------------
@@ -40,6 +43,7 @@ def controller_callback(distance):
     v = max(-MAX_SPEED, min(MAX_SPEED, v))
     cmd_vel_topic.publish(v)
 
+
 def main():
     root = tk.Tk()
     root.title("Observer pattern / ROS2 pub-sub demo")
@@ -55,6 +59,16 @@ def main():
     panel.pack(fill="x", padx=10)
     info = tk.Label(root, font=("Consolas", 10), justify="left")
     info.pack(anchor="w", padx=10)
+    warning_label = tk.Label(root, text="", fg="red", font=("Arial", 12, "bold"))
+    warning_label.pack(anchor="w", padx=10)
+    battery_label = tk.Label(root, font=("Consolas", 10))
+    battery_label.pack(anchor="w", padx=10)
+
+    def warning_callback(distance):
+        warning_label.config(text="WARNING: obstacle closer than 30 px" if distance < 30 else "")
+
+    def battery_callback(charge):
+        battery_label.config(text="Battery: {:.0f}%".format(charge))
 
     log = tk.Text(root, height=10, width=80, font=("Consolas", 9))
     log.pack(padx=10, pady=10)
@@ -69,9 +83,10 @@ def main():
         return callback
 
     def update_info():
-        info.config(text="subscribers: {} -> {}   /   {} -> {}".format(
+        info.config(text="subscribers: {} -> {}   /   {} -> {}   /   {} -> {}".format(
             scan_topic.name, scan_topic.subscriber_count(),
-            cmd_vel_topic.name, cmd_vel_topic.subscriber_count()))
+            cmd_vel_topic.name, cmd_vel_topic.subscriber_count(),
+            battery_topic.name, battery_topic.subscriber_count()))
 
     def add_subscription_checkbox(text, topic, callback, enabled=True):
         var = tk.BooleanVar(value=enabled)
@@ -88,11 +103,13 @@ def main():
 
     add_subscription_checkbox("controller ← /scan", scan_topic, controller_callback)
     add_subscription_checkbox("motor ← /cmd_vel", cmd_vel_topic, motor_callback)
+    add_subscription_checkbox("warning ← /scan", scan_topic, warning_callback)
+    add_subscription_checkbox("display ← /battery", battery_topic, battery_callback)
     add_subscription_checkbox("echo /scan", scan_topic, echo(scan_topic), enabled=False)
     add_subscription_checkbox("echo /cmd_vel", cmd_vel_topic, echo(cmd_vel_topic), enabled=False)
 
     def reset():
-        robot.update(x=60.0, v=0.0, crashed=False)
+        robot.update(x=60.0, v=0.0, crashed=False, battery=100.0)
         log.delete("1.0", "end")
 
     tk.Button(panel, text="Reset robot", command=reset).pack(side="right")
@@ -114,6 +131,7 @@ def main():
         """Timer callback: sensor node publishes, then the physics moves the robot."""
         w = wall_x.get()
         scan_topic.publish(w - robot["x"] - ROBOT_R)   # sensor node (publisher)
+        battery_topic.publish(robot["battery"])       # robot node (publisher)
 
         robot["x"] += robot["v"] * DT
         robot["x"] = max(ROBOT_R, robot["x"])

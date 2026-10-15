@@ -9,6 +9,7 @@ each other directly; they only publish to and subscribe to topics:
 sensor (timer) --/scan--> controller --/cmd_vel--> motor
                    \                       \
                     echo /scan              echo /cmd_vel
+robot --/battery--> battery display
 ```
 
 | Observer pattern      | ROS2                           | This code                   |
@@ -23,8 +24,7 @@ sensor (timer) --/scan--> controller --/cmd_vel--> motor
 2. Untick **controller ← /scan**: the motor keeps its last command and the robot crashes.
    Tick it again: it recovers. The sensor doesn't know or care who is listening.
 3. Turn on **echo /scan** and **echo /cmd_vel** to watch the messages (like `ros2 topic echo`).
+4. The **warning ← /scan** subscriber displays a warning below 30 px; **display ← /battery** shows the robot's battery charge (initialized to 100%).
 
-## Exercises
-- Add a subscriber to `/scan` that shows a warning label when the distance is < 30 px.
-- Add a new topic `/battery` that the robot publishes, and a subscriber that displays it.
+## Exercise
 - Why does `publish` iterate over `list(self._callbacks)` instead of `self._callbacks`?

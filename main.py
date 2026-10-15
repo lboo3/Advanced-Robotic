@@ -29,7 +29,7 @@ battery_topic = Topic("/battery")   # msg: remaining charge [%]
 robot = {"x": 60.0, "v": 0.0, "crashed": False, "battery": 100.0}
 
 
-# --- Subscriber callbacks (the observers) ---------------------------------
+# --- Subscriber callbacks (the observers) --------------------------------
 
 # ---- Robot node: subscribes to /cmd_vel and sets its wheel speed ---------
 def motor_callback(v):
